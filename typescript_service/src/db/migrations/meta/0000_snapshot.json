@@ -1,5 +1,5 @@
 {
-  "id": "75e4d18b-e37c-48d4-a986-d9013f59ffd1",
+  "id": "9c703c0d-0ee2-4dd0-b243-b6daa691b692",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -55,8 +55,14 @@
           "notNull": true,
           "default": "now()"
         },
-        "Price": {
-          "name": "Price",
+        "Bid": {
+          "name": "Bid",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Ask": {
+          "name": "Ask",
           "type": "real",
           "primaryKey": false,
           "notNull": false

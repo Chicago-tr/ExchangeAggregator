@@ -2,16 +2,6 @@ import { BinanceApi, CoinbaseApi } from "../../api.js";
 import { db } from "../index.js";
 import { exchanges, newPrices, prices, symbols } from "../schema.js";
 
-/* Old
-export async function createPrice(CoinPrice: string, BinPrice: string) {
-  const [result] = await db
-    .insert(prices)
-    .values({ CoinPrice: CoinPrice, BinancePrice: BinPrice })
-    .returning();
-  return result ?? null;
-}
-*/
-
 const exchangeNameToId = new Map<string, number>();
 const symbolCodeToId = new Map<string, number>();
 
@@ -45,7 +35,8 @@ async function loadReferenceData() {
 export async function createPriceEntry(
   exchangeName: string,
   symbol: string,
-  price: number,
+  bid: number,
+  ask: number,
 ) {
   await loadReferenceData();
   const exchangeId = exchangeNameToId.get(exchangeName);
@@ -56,7 +47,7 @@ export async function createPriceEntry(
   }
   await db
     .insert(prices)
-    .values({ exchangeId: exchangeId, symbolId: symbolId, price: price });
+    .values({ exchangeId: exchangeId, symbolId: symbolId, bid: bid, ask: ask });
 }
 
 const CoinApi = new CoinbaseApi();
@@ -64,10 +55,10 @@ const BinApi = new BinanceApi();
 
 export async function insertBinancePrice(symbol: string) {
   const data = await BinApi.fetchPrice(symbol);
-  await createPriceEntry("Binance", symbol, data);
+  await createPriceEntry("Binance", symbol, data.bid, data.ask);
 }
 
 export async function insertCoinbasePrice(symbol: string) {
   const data = await CoinApi.fetchPrice(symbol);
-  await createPriceEntry("Coinbase", symbol, data);
+  await createPriceEntry("Coinbase", symbol, data.bid, data.ask);
 }

@@ -12,7 +12,8 @@ import {
 export const prices = pgTable("prices", {
   id: uuid("id").primaryKey().defaultRandom(),
   timeStamp: timestamp("TimeStamp").notNull().defaultNow(),
-  price: real("Price"),
+  bid: real("Bid"),
+  ask: real("Ask"),
   exchangeId: integer("ExchangeId").references(() => exchanges.id),
   symbolId: integer("SymbolId").references(() => symbols.id),
 });

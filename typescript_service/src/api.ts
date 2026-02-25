@@ -1,11 +1,12 @@
 process.loadEnvFile();
 
 //Can probably simplify these later since logic is very similar
+//price = current ask
 
 export class CoinbaseApi {
   private static readonly baseURL = "https://api.exchange.coinbase.com";
   //const pairs = envOrThrow("COINBASE_PAIRS")
-  async fetchPrice(pair: string) {
+  async fetchPrice(pair: string): Promise<BidAskData> {
     const url = `${CoinbaseApi.baseURL}/products/${pair}/ticker`;
     const resp = await fetch(url, {
       method: "GET",
@@ -15,20 +16,23 @@ export class CoinbaseApi {
       throw new Error(`${resp.status} ${resp.statusText}`);
     }
     const respJson: CoinbaseData = await resp.json();
-    const price = respJson.price;
+    const bidNum = parseFloat(respJson.bid);
+    const askNum = parseFloat(respJson.ask);
 
-    return Number(price);
+    const bidAsk = { bid: bidNum, ask: askNum };
+
+    return bidAsk;
   }
 }
 
 export class BinanceApi {
   private static readonly baseURL =
-    "https://api.binance.us/api/v3/ticker/price?symbol=";
+    "https://api.binance.us/api/v3/ticker/bookTicker?symbol=";
 
   constructor() {}
   //const pairs = envOrThrow("BINANCE_PAIRS")
 
-  async fetchPrice(pair: string) {
+  async fetchPrice(pair: string): Promise<BidAskData> {
     const url = `${BinanceApi.baseURL}${pair}`;
 
     const resp = await fetch(url, {
@@ -40,16 +44,25 @@ export class BinanceApi {
     }
     const respJson: BinanceData = await resp.json();
 
-    const price = respJson.price;
-    const rounded = parseFloat(price).toFixed(2);
+    let roundedBid = Number(parseFloat(respJson.bidPrice).toFixed(2));
+    const roundedAsk = Number(parseFloat(respJson.askPrice).toFixed(2));
 
-    return Number(rounded);
+    const bidAsk = { bid: roundedBid, ask: roundedAsk };
+
+    return bidAsk;
   }
 }
+export type BidAskData = {
+  bid: number;
+  ask: number;
+};
 
 export type BinanceData = {
   symbol: string;
-  price: string;
+  bidPrice: string;
+  bidQty: string;
+  askPrice: string;
+  askQty: string;
 };
 
 export type CoinbaseData = {

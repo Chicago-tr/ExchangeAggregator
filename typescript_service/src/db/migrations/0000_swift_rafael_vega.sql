@@ -7,7 +7,8 @@ CREATE TABLE "exchanges" (
 CREATE TABLE "prices" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"TimeStamp" timestamp DEFAULT now() NOT NULL,
-	"Price" real,
+	"Bid" real,
+	"Ask" real,
 	"ExchangeId" integer,
 	"SymbolId" integer
 );
