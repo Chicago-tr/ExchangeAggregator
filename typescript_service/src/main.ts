@@ -12,10 +12,12 @@ import {
 
 async function main() {
   process.loadEnvFile();
+
   const migrationClient = postgres(config.db.url, { max: 1 });
+
   await migrate(drizzle(migrationClient), config.db.migrationConfig);
 
-  seedTables(); //Seeds exchange and symbol data into respective tables if it's not there
+  await seedTables(); //Seeds exchange and symbol data into respective tables if it's not there
 
   const CoinPairs = envOrThrow("COINBASE_PAIRS");
   const BinPairs = envOrThrow("BINANCE_PAIRS");
@@ -24,21 +26,20 @@ async function main() {
   const BinApi = new BinanceApi();
 
   while (true) {
-    await insertBinancePrice("BTCUSD");
+    await insertBinancePrice("BTC-USD");
     await insertCoinbasePrice("BTC-USD");
 
     await sleep(2000);
   }
   /*
-  console.log(`Coinbase: ${CoinData}`);
-  console.log(`Binance: ${BinData}`);
-*/
-  /*
-  const CoinData = await CoinBaseApi.fetchPrice(CoinPairs);
-  const BinData = await BinApi.fetchPrice(BinPairs);
-  const dat = { CoinPrice: CoinData, BinancePrice: BinData };
-  createPrices(CoinData, BinData);
+    console.log(`Coinbase: ${CoinData}`);
+    console.log(`Binance: ${BinData}`);
   */
+  /*
+    const CoinData = await CoinBaseApi.fetchPrice(CoinPairs);
+    const BinData = await BinApi.fetchPrice(BinPairs);
+    const dat = { CoinPrice: CoinData, BinancePrice: BinData };
+    createPrices(CoinData, BinData);
+    */
 }
-
 main();

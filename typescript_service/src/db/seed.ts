@@ -1,5 +1,5 @@
 import { db } from "./index.js";
-import { exchanges, symbols } from "./schema.js";
+import { etl_state, exchanges, symbols } from "./schema.js";
 
 export async function seedTables() {
   const exchangeList = [{ name: "Binance" }, { name: "Coinbase" }];
@@ -8,13 +8,23 @@ export async function seedTables() {
     .values(exchangeList)
     .onConflictDoNothing({ target: exchanges.name });
 
+  /*
   const coinbase = {
     baseAsset: "BTC",
     quoteAsset: "USD",
     symbolCode: "BTC-USD",
   };
-  const binance = { baseAsset: "BTC", quoteAsset: "USD", symbolCode: "BTCUSD" };
+  */
+  const btcusd = { baseAsset: "BTC", quoteAsset: "USD", symbolCode: "BTC-USD" };
 
-  await db.insert(symbols).values(coinbase).onConflictDoNothing();
-  await db.insert(symbols).values(binance).onConflictDoNothing();
+  //await db.insert(symbols).values(coinbase).onConflictDoNothing();
+  await db.insert(symbols).values(btcusd).onConflictDoNothing();
+
+  //default date just set to distant past so we use all collected data initially
+  const date = new Date(0);
+  const stateData = { id: "bars_and_cross_spread_1m", last_processed: date };
+  await db
+    .insert(etl_state)
+    .values(stateData)
+    .onConflictDoNothing({ target: etl_state.id });
 }

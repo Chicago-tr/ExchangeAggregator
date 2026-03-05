@@ -36,3 +36,8 @@ export const symbols = pgTable(
   (t) => ({ unq: unique().on(t.baseAsset, t.quoteAsset, t.symbolCode) }),
 );
 export type symbols = typeof symbols.$inferInsert;
+
+export const etl_state = pgTable("etl_state", {
+  id: varchar("id").primaryKey(),
+  last_processed: timestamp("last_processed").notNull().defaultNow(),
+});

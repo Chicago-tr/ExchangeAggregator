@@ -1,0 +1,203 @@
+{
+  "id": "a4a56b15-02fc-4698-a49c-4dee7562bfb0",
+  "prevId": "fe1096f9-3aeb-47cf-8540-c771280d2c30",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.etl_state": {
+      "name": "etl_state",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "last_processed": {
+          "name": "last_processed",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.exchanges": {
+      "name": "exchanges",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "ExchangeName": {
+          "name": "ExchangeName",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "exchanges_ExchangeName_unique": {
+          "name": "exchanges_ExchangeName_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "ExchangeName"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.prices": {
+      "name": "prices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "TimeStamp": {
+          "name": "TimeStamp",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "Bid": {
+          "name": "Bid",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Ask": {
+          "name": "Ask",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ExchangeId": {
+          "name": "ExchangeId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "SymbolId": {
+          "name": "SymbolId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "prices_ExchangeId_exchanges_id_fk": {
+          "name": "prices_ExchangeId_exchanges_id_fk",
+          "tableFrom": "prices",
+          "tableTo": "exchanges",
+          "columnsFrom": [
+            "ExchangeId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "prices_SymbolId_symbols_id_fk": {
+          "name": "prices_SymbolId_symbols_id_fk",
+          "tableFrom": "prices",
+          "tableTo": "symbols",
+          "columnsFrom": [
+            "SymbolId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.symbols": {
+      "name": "symbols",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "BaseAsset": {
+          "name": "BaseAsset",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "QuoteAsset": {
+          "name": "QuoteAsset",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "SymbolCode": {
+          "name": "SymbolCode",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "symbols_BaseAsset_QuoteAsset_SymbolCode_unique": {
+          "name": "symbols_BaseAsset_QuoteAsset_SymbolCode_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "BaseAsset",
+            "QuoteAsset",
+            "SymbolCode"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

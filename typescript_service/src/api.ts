@@ -33,7 +33,12 @@ export class BinanceApi {
   //const pairs = envOrThrow("BINANCE_PAIRS")
 
   async fetchPrice(pair: string): Promise<BidAskData> {
-    const url = `${BinanceApi.baseURL}${pair}`;
+    const pre = pair.slice(0, 3);
+    const suf = pair.slice(4);
+
+    const newPair = pre + suf;
+
+    const url = `${BinanceApi.baseURL}${newPair}`;
 
     const resp = await fetch(url, {
       method: "GET",

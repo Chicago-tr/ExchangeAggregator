@@ -1,0 +1,1 @@
+ALTER TABLE "etl_state" RENAME COLUMN "Timestamp" TO "last_processed";
