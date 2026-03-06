@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 
 import dash
@@ -6,11 +7,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 import psycopg2
 from dash import Input, Output, dcc, html
+from dotenv import load_dotenv
 from plotly.subplots import make_subplots
 from sqlalchemy import create_engine
 
-DB_URL = "postgres://johnurban:@localhost:5432/arb?sslmode=disable"
-engine = create_engine("postgresql://johnurban:@localhost:5432/arb?sslmode=disable")
+load_dotenv()
+
+db_url = os.getenv("DB_URL")
+print(db_url)
+if db_url:
+    engine = create_engine(db_url)
+else:
+    raise ValueError("No url to database specified")
 
 app = dash.Dash(__name__)
 
@@ -56,10 +64,10 @@ def update_dropdowns(_):
 
     symbols_df = pd.read_sql(
         """
-        SELECT DISTINCT "SymbolId"
+        SELECT DISTINCT symbol_code
         FROM bars_1m b
-        JOIN symbols s ON b."SymbolId" = s.id
-        ORDER BY SymbolCode
+        JOIN symbols s ON b.symbol_id = s.id
+        ORDER BY symbol_code
     """,
         engine,
     )
@@ -71,13 +79,13 @@ def update_dropdowns(_):
 
     # Get exchanges
     exchanges_df = pd.read_sql(
-        "SELECT ExchangeName FROM exchanges ORDER BY ExchangeName", engine
+        "SELECT exchange_name FROM exchanges ORDER BY exchange_name", engine
     )
     exchanges = [
-        {"label": row.ExchangeName, "value": row.ExchangeName}
+        {"label": row.exchange_name, "value": row.exchange_name}
         for _, row in exchanges_df.iterrows()
     ]
-    print(symbols)
+
     return symbols, exchanges
 
 
@@ -99,31 +107,34 @@ def update_price_spread_chart(symbol, exchanges, start_date, end_date):
         return go.Figure()
 
     # Build query for selected symbol(s) and date range
-    exchange_filter = "WHERE 1=1"
+    conditions = []
+    params = []
+
+    conditions.append("s.symbol_code = %s")
+    params.append(symbol)
+
     if exchanges:
         placeholders = ",".join(["%s"] * len(exchanges))
-        exchange_filter += f" AND e.name IN ({placeholders})"
+        conditions.append(f"e.exchange_name IN ({placeholders})")
+        params.extend(exchanges)
+
+    where_clause = " AND ".join(conditions)
 
     df = pd.read_sql(
         f"""
             SELECT
-                b."bar_ts",
-                e."name" as "exchangeName",
-                b."close_mid",
-                b."avg_rel_spread_bps"
+                b.bar_ts,
+                e.exchange_name as exchange_name,
+                b.close_mid,
+                b.avg_rel_spread_bps
             FROM bars_1m b
-            JOIN exchanges e ON b."ExchangeId" = e.id
-            JOIN symbols s ON b."SymbolId" = s.id
-            {exchange_filter}
-            WHERE s."symbolCode" = %s
-            AND b."bar_ts" >= %s
-            AND b."bar_ts" <= %s
-            ORDER BY b."bar_ts", e."name"
+            JOIN exchanges e ON b.exchange_id = e.id
+            JOIN symbols s ON b.symbol_id = s.id
+            WHERE {where_clause}
+            ORDER BY b.bar_ts, e.exchange_name
         """,
         engine,
-        params=([symbol, start_date, end_date] + exchanges)
-        if exchanges
-        else [symbol, start_date, end_date],
+        params=(tuple(params)),
     )
 
     if df.empty:
@@ -181,19 +192,19 @@ def update_price_spread_chart(symbol, exchanges, start_date, end_date):
 def update_cross_spread_chart(symbol, start_date, end_date):
     if not symbol:
         return go.Figure()
-
+    params = [symbol, start_date, end_date]
     df = pd.read_sql(
         """
-        SELECT "bar_ts", "cross_spread_bps"
+        SELECT bar_ts, cross_spread_bps
         FROM cross_ex_spread_1m c
-        JOIN symbols s ON c."symbolId" = s.id
-        WHERE s."symbolCode" = %s
-        AND "bar_ts" >= %s
-        AND "bar_ts" <= %s
-        ORDER BY "bar_ts"
+        JOIN symbols s ON c.symbol_id = s.id
+        WHERE s.symbol_code = %s
+        AND bar_ts >= %s
+        AND bar_ts <= %s
+        ORDER BY bar_ts
     """,
         engine,
-        params=[symbol, start_date, end_date],
+        params=(tuple(params)),
     )
 
     if df.empty:

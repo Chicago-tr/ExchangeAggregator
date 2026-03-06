@@ -2,11 +2,14 @@ import { db } from "./index.js";
 import { etl_state, exchanges, symbols } from "./schema.js";
 
 export async function seedTables() {
-  const exchangeList = [{ name: "Binance" }, { name: "Coinbase" }];
+  const exchangeList = [
+    { exchange_name: "Binance" },
+    { exchange_name: "Coinbase" },
+  ];
   await db
     .insert(exchanges)
     .values(exchangeList)
-    .onConflictDoNothing({ target: exchanges.name });
+    .onConflictDoNothing({ target: exchanges.exchange_name });
 
   /*
   const coinbase = {
@@ -15,7 +18,11 @@ export async function seedTables() {
     symbolCode: "BTC-USD",
   };
   */
-  const btcusd = { baseAsset: "BTC", quoteAsset: "USD", symbolCode: "BTC-USD" };
+  const btcusd = {
+    base_asset: "BTC",
+    quote_asset: "USD",
+    symbol_code: "BTC-USD",
+  };
 
   //await db.insert(symbols).values(coinbase).onConflictDoNothing();
   await db.insert(symbols).values(btcusd).onConflictDoNothing();

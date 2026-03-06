@@ -10,7 +10,7 @@ async function loadReferenceData() {
   //The variables are used to get the table id of an exchange name or symbol when creating a price entry
   //Data for the exchange and symbol tables is currently hardcoded since it's just names
   const exchangeData = await db
-    .select({ id: exchanges.id, name: exchanges.name })
+    .select({ id: exchanges.id, name: exchanges.exchange_name })
     .from(exchanges);
   for (let row of exchangeData) {
     if (row.name) {
@@ -21,11 +21,11 @@ async function loadReferenceData() {
   }
 
   const symbolsData = await db
-    .select({ id: symbols.id, symbolCode: symbols.symbolCode })
+    .select({ id: symbols.id, symbol_code: symbols.symbol_code })
     .from(symbols);
   for (let row of symbolsData) {
-    if (row.symbolCode) {
-      symbolCodeToId.set(row.symbolCode, row.id);
+    if (row.symbol_code) {
+      symbolCodeToId.set(row.symbol_code, row.id);
     } else {
       throw new Error("Failed to load a symbol code for reference.");
     }
@@ -39,15 +39,20 @@ export async function createPriceEntry(
   ask: number,
 ) {
   await loadReferenceData();
-  const exchangeId = exchangeNameToId.get(exchangeName);
-  const symbolId = symbolCodeToId.get(symbol);
+  const exchange_id = exchangeNameToId.get(exchangeName);
+  const symbol_id = symbolCodeToId.get(symbol);
 
-  if (exchangeId == null || symbolId == null) {
+  if (exchange_id == null || symbol_id == null) {
     throw new Error("Unknown exchange or symbol");
   }
   await db
     .insert(prices)
-    .values({ exchangeId: exchangeId, symbolId: symbolId, bid: bid, ask: ask });
+    .values({
+      exchange_id: exchange_id,
+      symbol_id: symbol_id,
+      bid: bid,
+      ask: ask,
+    });
 }
 
 const CoinApi = new CoinbaseApi();

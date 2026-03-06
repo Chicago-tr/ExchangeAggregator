@@ -11,17 +11,17 @@ import {
 
 export const prices = pgTable("prices", {
   id: uuid("id").primaryKey().defaultRandom(),
-  timeStamp: timestamp("TimeStamp").notNull().defaultNow(),
-  bid: real("Bid"),
-  ask: real("Ask"),
-  exchangeId: integer("ExchangeId").references(() => exchanges.id),
-  symbolId: integer("SymbolId").references(() => symbols.id),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  bid: real("bid"),
+  ask: real("ask"),
+  exchange_id: integer("exchange_id").references(() => exchanges.id),
+  symbol_id: integer("symbol_id").references(() => symbols.id),
 });
 export type newPrices = typeof prices.$inferInsert;
 
 export const exchanges = pgTable("exchanges", {
   id: serial("id").primaryKey(),
-  name: varchar("ExchangeName").unique(),
+  exchange_name: varchar("exchange_name").unique(),
 });
 export type exchanges = typeof exchanges.$inferInsert;
 
@@ -29,11 +29,11 @@ export const symbols = pgTable(
   "symbols",
   {
     id: serial("id").primaryKey(),
-    baseAsset: varchar("BaseAsset"),
-    quoteAsset: varchar("QuoteAsset"),
-    symbolCode: varchar("SymbolCode"),
+    base_asset: varchar("base_asset"),
+    quote_asset: varchar("quote_asset"),
+    symbol_code: varchar("symbol_code"),
   },
-  (t) => ({ unq: unique().on(t.baseAsset, t.quoteAsset, t.symbolCode) }),
+  (t) => ({ unq: unique().on(t.base_asset, t.quote_asset, t.symbol_code) }),
 );
 export type symbols = typeof symbols.$inferInsert;
 

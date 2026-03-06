@@ -44,9 +44,9 @@ quotes_df = (
 )
 # cutoff = "2026-03-03 19:48:00"
 
-quotes_df_filtered = quotes_df.filter(F.col("TimeStamp") > last_processed_ts)
+quotes_df_filtered = quotes_df.filter(F.col("timestamp") > last_processed_ts)
 
-max_ts_row = quotes_df_filtered.agg(F.max("TimeStamp").alias("max_ts")).head(1)
+max_ts_row = quotes_df_filtered.agg(F.max("timestamp").alias("max_ts")).head(1)
 
 if max_ts_row and max_ts_row[0]["max_ts"] is not None:
     new_last_ts = max_ts_row[0]["max_ts"]
@@ -56,9 +56,9 @@ if max_ts_row and max_ts_row[0]["max_ts"] is not None:
 # table with derived columns
 quotes_with_features = (
     quotes_df_filtered.withColumn(
-        "mid_price", F.round(((F.col("Bid") + F.col("Ask")) / 2), 2)
+        "mid_price", F.round(((F.col("bid") + F.col("ask")) / 2), 2)
     )
-    .withColumn("spread", F.col("Ask") - F.col("Bid"))
+    .withColumn("spread", F.col("ask") - F.col("bid"))
     .withColumn(
         "rel_spread_bps", (F.col("spread") / F.col("mid_price")) * F.lit(10000.0)
     )
@@ -66,11 +66,11 @@ quotes_with_features = (
 
 # bucket into minutes
 quotes_bucketed = quotes_with_features.withColumn(
-    "bar_ts", F.date_trunc("minute", F.col("TimeStamp"))
+    "bar_ts", F.date_trunc("minute", F.col("timestamp"))
 )
 
 # use buckets to aggregate by exchange, asset, and time
-bars_1m = quotes_bucketed.groupBy("ExchangeId", "SymbolId", "bar_ts").agg(
+bars_1m = quotes_bucketed.groupBy("exchange_id", "symbol_id", "bar_ts").agg(
     F.first("mid_price").alias("open_mid"),
     F.max("mid_price").alias("high_mid"),
     F.min("mid_price").alias("low_mid"),
@@ -80,7 +80,7 @@ bars_1m = quotes_bucketed.groupBy("ExchangeId", "SymbolId", "bar_ts").agg(
 )
 
 cross_ex_spread = (
-    bars_1m.groupBy("SymbolId", "bar_ts")
+    bars_1m.groupBy("symbol_id", "bar_ts")
     .agg(
         F.min("close_mid").alias("min_mid"),
         F.max("close_mid").alias("max_mid"),
