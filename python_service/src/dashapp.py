@@ -5,7 +5,6 @@ import dash
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import psycopg2
 from dash import Input, Output, dcc, html
 from dotenv import load_dotenv
 from plotly.subplots import make_subplots
@@ -14,7 +13,7 @@ from sqlalchemy import create_engine
 load_dotenv()
 
 db_url = os.getenv("DB_URL")
-print(db_url)
+
 if db_url:
     engine = create_engine(db_url)
 else:
@@ -39,7 +38,7 @@ app.layout = html.Div(
                     id="date-range",
                     start_date=datetime.now() - timedelta(days=7),
                     end_date=datetime.now(),
-                    style={"margin": "10px"},
+                    style={"width": "250px"},
                 ),
                 html.Label("Exchanges:"),
                 dcc.Dropdown(
