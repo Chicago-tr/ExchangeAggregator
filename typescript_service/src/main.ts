@@ -19,16 +19,17 @@ async function main() {
 
   await seedTables(); //Seeds exchange and symbol data into respective tables if it's not there
 
-  const CoinPairs = envOrThrow("COINBASE_PAIRS");
-  const BinPairs = envOrThrow("BINANCE_PAIRS");
+  const pairs = envOrThrow("PAIRS");
+  const pairsSplit = pairs.split(",");
 
   const CoinBaseApi = new CoinbaseApi();
   const BinApi = new BinanceApi();
-
+  console.log(pairsSplit);
   while (true) {
-    await insertBinancePrice("BTC-USD");
-    await insertCoinbasePrice("BTC-USD");
-
+    for (const sym of pairsSplit) {
+      await insertBinancePrice(sym);
+      await insertCoinbasePrice(sym);
+    }
     await sleep(2000);
   }
   /*

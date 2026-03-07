@@ -9,11 +9,8 @@ from update import update_ts
 
 def run_spark():
     load_dotenv()
-
     PJAR = os.getenv("PJAR")
     JDBC_URL = os.getenv("JDBC_URL")
-
-    print(JDBC_URL)
 
     spark = (
         SparkSession.builder.appName("CryptoAnalysis")
@@ -39,6 +36,7 @@ def run_spark():
         default_date = datetime.fromtimestamp(0)
         last_processed_ts = default_date
 
+    # Loading the prices table
     quotes_df = (
         spark.read.format("jdbc")
         .option("url", JDBC_URL)
@@ -47,8 +45,10 @@ def run_spark():
         .load()
     )
 
+    # Take only data past timestamp cutoff
     quotes_df_filtered = quotes_df.filter(F.col("timestamp") > last_processed_ts)
 
+    # Get the latest timestamp and set that as the new last processed timestamp
     max_ts_row = quotes_df_filtered.agg(F.max("timestamp").alias("max_ts")).head(1)
 
     if max_ts_row and max_ts_row[0]["max_ts"] is not None:
@@ -96,13 +96,14 @@ def run_spark():
         )
     )
 
-    cross_ex_spread.show(10, truncate=False)
-
+    # Can print tables directly here if desired, examples:
+    #
+    # cross_ex_spread.show(10, truncate=False)
     # bars_1m.show(10, truncate=False)
     # quotes_with_features.printSchema()
     # quotes_with_features.show(5, truncate=False)
-    quotes_bucketed.printSchema()
-    quotes_bucketed.show(5)
+    # quotes_bucketed.printSchema()
+    # quotes_bucketed.show(5)
 
     # Writes analysis tables to psql database
     bars_1m.write.format("jdbc").option("url", JDBC_URL).option(

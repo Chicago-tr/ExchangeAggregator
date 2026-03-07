@@ -23,9 +23,21 @@ export async function seedTables() {
     quote_asset: "USD",
     symbol_code: "BTC-USD",
   };
+  const ethusd = {
+    base_asset: "ETH",
+    quote_asset: "USD",
+    symbol_code: "ETH-USD",
+  };
+  const solusd = {
+    base_asset: "SOL",
+    quote_asset: "USD",
+    symbol_code: "SOL-USD",
+  };
 
   //await db.insert(symbols).values(coinbase).onConflictDoNothing();
   await db.insert(symbols).values(btcusd).onConflictDoNothing();
+  await db.insert(symbols).values(ethusd).onConflictDoNothing();
+  await db.insert(symbols).values(solusd).onConflictDoNothing();
 
   //default date just set to distant past so we use all collected data initially
   const date = new Date(0);

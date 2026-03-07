@@ -17,7 +17,7 @@ db_url = os.getenv("DB_URL")
 if db_url:
     engine = create_engine(db_url)
 else:
-    raise ValueError("No url to database specified")
+    raise ValueError("No url to database specified in .env")
 
 app = dash.Dash(__name__)
 
@@ -29,8 +29,8 @@ app.layout = html.Div(
                 html.Label("Symbol:"),
                 dcc.Dropdown(
                     id="symbol-dropdown",
-                    options=[],  # populated dynamically
-                    value="BTC-USD",  # default
+                    options=[],  # this should populate dynamically
+                    value="BTC-USD",  # default value
                     style={"width": "200px"},
                 ),
                 html.Label("Date Range:"),
@@ -76,7 +76,7 @@ def update_dropdowns(_):
         for _, row in symbols_df.iterrows()
     ]
 
-    # Get exchanges
+    # Get exchanges table
     exchanges_df = pd.read_sql(
         "SELECT exchange_name FROM exchanges ORDER BY exchange_name", engine
     )
@@ -86,9 +86,6 @@ def update_dropdowns(_):
     ]
 
     return symbols, exchanges
-
-
-print("test")
 
 
 # Main price/spread chart
@@ -105,12 +102,19 @@ def update_price_spread_chart(symbol, exchanges, start_date, end_date):
     if not symbol:
         return go.Figure()
 
-    # Build query for selected symbol(s) and date range
+    # These will be the filters for symbols and/or date range
     conditions = []
     params = []
 
+    # Symbol filter
     conditions.append("s.symbol_code = %s")
     params.append(symbol)
+
+    # Date filter
+    conditions.append("b.bar_ts >= %s")
+    params.append(start_date)
+    conditions.append("b.bar_ts <= %s")
+    params.append(end_date)
 
     if exchanges:
         placeholders = ",".join(["%s"] * len(exchanges))
@@ -139,7 +143,7 @@ def update_price_spread_chart(symbol, exchanges, start_date, end_date):
     if df.empty:
         return go.Figure()
 
-    # Dual y-axis subplot
+    # Should be dual y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     # Price lines
@@ -155,7 +159,7 @@ def update_price_spread_chart(symbol, exchanges, start_date, end_date):
             secondary_y=False,
         )
 
-    # Spread overlay
+    # Overlay for the spread
     for exch in df["exchange_name"].unique():
         exch_df = df[df["exchange_name"] == exch]
         fig.add_trace(
