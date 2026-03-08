@@ -24,7 +24,7 @@ async function main() {
 
   const CoinBaseApi = new CoinbaseApi();
   const BinApi = new BinanceApi();
-  console.log(pairsSplit);
+
   while (true) {
     for (const sym of pairsSplit) {
       await insertBinancePrice(sym);
@@ -32,15 +32,5 @@ async function main() {
     }
     await sleep(2000);
   }
-  /*
-    console.log(`Coinbase: ${CoinData}`);
-    console.log(`Binance: ${BinData}`);
-  */
-  /*
-    const CoinData = await CoinBaseApi.fetchPrice(CoinPairs);
-    const BinData = await BinApi.fetchPrice(BinPairs);
-    const dat = { CoinPrice: CoinData, BinancePrice: BinData };
-    createPrices(CoinData, BinData);
-    */
 }
 main();
