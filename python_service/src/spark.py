@@ -1,9 +1,21 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
+import numpy as np
+import pandas as pd
 from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.functions import PandasUDFType, col, pandas_udf, when
+from pyspark.sql.types import (
+    DoubleType,
+    LongType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+from pyspark.sql.window import Window
+from scipy import stats
 from update import update_ts
 
 
@@ -45,8 +57,12 @@ def run_spark():
         .load()
     )
 
+    next_minute = (last_processed_ts + timedelta(minutes=1)).replace(
+        second=0, microsecond=0
+    )
     # Take only data past timestamp cutoff
     quotes_df_filtered = quotes_df.filter(F.col("timestamp") > last_processed_ts)
+    quotes_df_filtered_minute = quotes_df.filter(F.col("timestamp") > next_minute)
 
     # Get the latest timestamp and set that as the new last processed timestamp
     max_ts_row = quotes_df_filtered.agg(F.max("timestamp").alias("max_ts")).head(1)
@@ -59,7 +75,7 @@ def run_spark():
 
     # Table with derived columns
     quotes_with_features = (
-        quotes_df_filtered.withColumn(
+        quotes_df_filtered_minute.withColumn(
             "mid_price", F.round(((F.col("bid") + F.col("ask")) / 2), 2)
         )
         .withColumn("spread", F.col("ask") - F.col("bid"))
@@ -68,7 +84,7 @@ def run_spark():
         )
     )
 
-    # Create column with minute buckets into minutes
+    # Create column with minute buckets
     quotes_bucketed = quotes_with_features.withColumn(
         "bar_ts", F.date_trunc("minute", F.col("timestamp"))
     )
@@ -106,16 +122,143 @@ def run_spark():
     # quotes_bucketed.show(5)
 
     # Writes analysis tables to psql database
-    bars_1m.write.format("jdbc").option("url", JDBC_URL).option(
+    bars_1m_final = bars_1m.dropDuplicates(["symbol_id", "exchange_id", "bar_ts"])
+    c_spread_final = cross_ex_spread.dropDuplicates(["symbol_id", "bar_ts"])
+
+    bars_1m_final.write.format("jdbc").option("url", JDBC_URL).option(
         "dbtable", "bars_1m"
     ).option("driver", "org.postgresql.Driver").mode("append").save()
 
-    cross_ex_spread.write.format("jdbc").option("url", JDBC_URL).option(
+    c_spread_final.write.format("jdbc").option("url", JDBC_URL).option(
         "dbtable", "cross_ex_spread_1m"
     ).option("driver", "org.postgresql.Driver").mode("append").save()
 
-    bars = bars_1m.dropDuplicates()
-    c = cross_ex_spread.dropDuplicates()
+    VENUE_PAIRS = [{"target": 2, "ref": 1}, {"target": 1, "ref": 2}]
+    # FIXED: Define proper output schema
+    output_schema = StructType(
+        [
+            StructField("symbol_id", LongType(), True),
+            StructField("bar_ts", TimestampType(), True),
+            StructField("residual", DoubleType(), True),
+            StructField("residual_bps", DoubleType(), True),
+        ]
+    )
+
+    @pandas_udf(output_schema, PandasUDFType.GROUPED_MAP)
+    def compute_regression_residuals(pdf):
+        # Rolling OLS: Use ALL available history up to 500 bars max
+        pdf = pdf.sort_values("bar_ts").reset_index(drop=True)
+        residuals = np.full(len(pdf), np.nan)
+        residual_bps = np.full(len(pdf), np.nan)
+
+        for i in range(20, len(pdf)):  # Start after 20 bars minimum
+            # Dynamic window: all available up to 500 max
+            window_start = max(0, (i - 500))
+            window_slice = pdf.loc[window_start:i, ["close_mid", "ref_price"]]
+
+            # **LOOSER VALIDATION: Just need 15+ points**
+            y = window_slice["close_mid"].dropna()
+            x = window_slice["ref_price"].dropna()
+
+            if len(y) >= 15 and len(x) == len(y):
+                slope, intercept, _, _, _ = stats.linregress(x, y)
+                predicted = intercept + slope * pdf.loc[i, "ref_price"]
+                residuals[i] = pdf.loc[i, "close_mid"] - predicted
+                residual_bps[i] = (residuals[i] / pdf.loc[i, "close_mid"]) * 10000
+
+        pdf = pdf.copy()
+        pdf["residual"] = residuals
+        pdf["residual_bps"] = residual_bps
+        return pdf[["symbol_id", "bar_ts", "residual", "residual_bps"]].reset_index(
+            drop=True
+        )
+
+    cutoff_time = F.current_timestamp() - F.expr("INTERVAL 4 HOURS")
+
+    bars_1m_reg = (
+        spark.read.format("jdbc")
+        .option("url", JDBC_URL)
+        .option("dbtable", "bars_1m")
+        .option("driver", "org.postgresql.Driver")
+        .load()
+    )
+    cutoff_output = last_processed_ts  # Your existing timestamp
+    cutoff_time = cutoff_output - F.expr("INTERVAL 4 HOURS")
+
+    bars_last_four_hours = bars_1m_reg.filter(col("bar_ts") > cutoff_time)
+    recent_output_bars = bars_1m_reg.filter(col("bar_ts") > cutoff_output)
+
+    print(f"Full context: {bars_1m_reg.count()} bars")
+    print(f"New output: {recent_output_bars.count()} bars")
+
+    recent_bars = bars_1m_reg.filter(col("bar_ts") > next_minute)
+
+    print(f"Processing {recent_bars.count()} recent bars")
+    active_symbols = recent_bars.select("symbol_id").distinct()
+    print(f"Active symbols: {active_symbols.count()}")
+
+    # Join target and reference venue prices
+    for pair in VENUE_PAIRS:
+        target_id = pair["target"]
+        ref_id = pair["ref"]
+        """
+        regression_bars = (
+            recent_bars.alias("target")
+            .filter(col("exchange_id") == target_id)
+            .filter(col("bar_ts") > cutoff_time)
+            .withColumn("bar_ts_minute", F.date_trunc("minute", col("bar_ts")))
+            .join(
+                recent_bars.alias("ref")
+                .filter(col("exchange_id") == ref_id)
+                .withColumn("bar_ts_minute", F.date_trunc("minute", col("bar_ts")))
+                .select(
+                    "symbol_id", "bar_ts_minute", col("close_mid").alias("ref_price")
+                ),
+                ["symbol_id", "bar_ts_minute"],
+                "inner",
+            )
+            .select(
+                col("target.symbol_id").alias("symbol_id"),
+                col("target.bar_ts").alias("bar_ts"),
+                col("target.close_mid").alias("close_mid"),
+                col("ref_price").alias("ref_price"),
+            )
+            .groupBy("symbol_id")
+            .apply(compute_regression_residuals)
+        )"""
+        regression_bars = (
+            bars_last_four_hours.alias("target")  # ← FULL history for context
+            .filter(col("exchange_id") == target_id)
+            .join(
+                bars_last_four_hours.alias("ref")  # ← FULL history for context
+                .filter(col("exchange_id") == ref_id)
+                .select("symbol_id", "bar_ts", col("close_mid").alias("ref_price")),
+                ["symbol_id", "bar_ts"],
+                "inner",
+            )
+            .select(
+                col("target.symbol_id").alias("symbol_id"),
+                col("target.bar_ts").alias("bar_ts"),
+                col("target.close_mid").alias("close_mid"),
+                col("ref_price"),
+            )
+            .groupBy("symbol_id")
+            .apply(compute_regression_residuals)
+        )
+
+        new_regression_results = regression_bars.filter(col("bar_ts") > cutoff_output)
+        # Write to new table
+        new_regression_results.select(
+            col("symbol_id"),
+            col("bar_ts"),
+            F.lit(target_id).alias("target_exchange_id"),
+            F.lit(ref_id).alias("ref_exchange_id"),
+            col("residual"),
+            col("residual_bps").alias("regression_residual_bps"),
+        ).write.format("jdbc").option("url", JDBC_URL).option(
+            "dbtable", "cross_ex_regression"
+        ).option("driver", "org.postgresql.Driver").mode("append").save()
+
     spark.stop()
     return
 
