@@ -6,6 +6,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import Input, Output, dcc, html
+from dash_regression import load_regression_analysis
 from dotenv import load_dotenv
 from plotly.subplots import make_subplots
 from sqlalchemy import create_engine
