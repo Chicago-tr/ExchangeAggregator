@@ -4,3 +4,6 @@ node_modules
 .env
 typescript_service/.env
 python_service/src/.env
+__pycache__/
+*.pyc
+spark-warehouse/

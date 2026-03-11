@@ -30,7 +30,7 @@ async function main() {
       await insertBinancePrice(sym);
       await insertCoinbasePrice(sym);
     }
-    await sleep(2000);
+    await sleep(2000); //interval to run http requests on (in ms)- check exchange limits
   }
 }
 main();

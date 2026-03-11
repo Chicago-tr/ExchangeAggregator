@@ -2,11 +2,10 @@ import os
 from datetime import datetime, timedelta
 
 import numpy as np
-import pandas as pd
 from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.functions import PandasUDFType, col, pandas_udf, when
+from pyspark.sql.functions import PandasUDFType, col, pandas_udf
 from pyspark.sql.types import (
     DoubleType,
     LongType,
@@ -14,7 +13,6 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
-from pyspark.sql.window import Window
 from scipy import stats
 from update import update_ts
 
@@ -112,7 +110,7 @@ def run_spark():
         )
     )
 
-    # Can print tables directly here if desired, examples:
+    # Can print tables directly here (debugging), examples:
     #
     # cross_ex_spread.show(10, truncate=False)
     # bars_1m.show(10, truncate=False)
@@ -134,7 +132,7 @@ def run_spark():
     ).option("driver", "org.postgresql.Driver").mode("append").save()
 
     VENUE_PAIRS = [{"target": 2, "ref": 1}, {"target": 1, "ref": 2}]
-    # FIXED: Define proper output schema
+
     output_schema = StructType(
         [
             StructField("symbol_id", LongType(), True),
@@ -146,17 +144,17 @@ def run_spark():
 
     @pandas_udf(output_schema, PandasUDFType.GROUPED_MAP)
     def compute_regression_residuals(pdf):
-        # Rolling OLS: Use ALL available history up to 500 bars max
+        # Rolling OLS: Using all available history up to max of 500 bars
         pdf = pdf.sort_values("bar_ts").reset_index(drop=True)
         residuals = np.full(len(pdf), np.nan)
         residual_bps = np.full(len(pdf), np.nan)
 
         for i in range(20, len(pdf)):  # Start after 20 bars minimum
-            # Dynamic window: all available up to 500 max
+            # Dynamic window: all available (500 max)
             window_start = max(0, (i - 500))
             window_slice = pdf.loc[window_start:i, ["close_mid", "ref_price"]]
 
-            # **LOOSER VALIDATION: Just need 15+ points**
+            # validation using 15+ points
             y = window_slice["close_mid"].dropna()
             x = window_slice["ref_price"].dropna()
 
@@ -182,7 +180,7 @@ def run_spark():
         .option("driver", "org.postgresql.Driver")
         .load()
     )
-    cutoff_output = last_processed_ts  # Your existing timestamp
+    cutoff_output = last_processed_ts  # existing timestamp
     cutoff_time = cutoff_output - F.expr("INTERVAL 4 HOURS")
 
     bars_last_four_hours = bars_1m_reg.filter(col("bar_ts") > cutoff_time)
@@ -201,36 +199,12 @@ def run_spark():
     for pair in VENUE_PAIRS:
         target_id = pair["target"]
         ref_id = pair["ref"]
-        """
+
         regression_bars = (
-            recent_bars.alias("target")
-            .filter(col("exchange_id") == target_id)
-            .filter(col("bar_ts") > cutoff_time)
-            .withColumn("bar_ts_minute", F.date_trunc("minute", col("bar_ts")))
-            .join(
-                recent_bars.alias("ref")
-                .filter(col("exchange_id") == ref_id)
-                .withColumn("bar_ts_minute", F.date_trunc("minute", col("bar_ts")))
-                .select(
-                    "symbol_id", "bar_ts_minute", col("close_mid").alias("ref_price")
-                ),
-                ["symbol_id", "bar_ts_minute"],
-                "inner",
-            )
-            .select(
-                col("target.symbol_id").alias("symbol_id"),
-                col("target.bar_ts").alias("bar_ts"),
-                col("target.close_mid").alias("close_mid"),
-                col("ref_price").alias("ref_price"),
-            )
-            .groupBy("symbol_id")
-            .apply(compute_regression_residuals)
-        )"""
-        regression_bars = (
-            bars_last_four_hours.alias("target")  # ← FULL history for context
+            bars_last_four_hours.alias("target")
             .filter(col("exchange_id") == target_id)
             .join(
-                bars_last_four_hours.alias("ref")  # ← FULL history for context
+                bars_last_four_hours.alias("ref")
                 .filter(col("exchange_id") == ref_id)
                 .select("symbol_id", "bar_ts", col("close_mid").alias("ref_price")),
                 ["symbol_id", "bar_ts"],

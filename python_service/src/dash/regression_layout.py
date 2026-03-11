@@ -1,49 +1,5 @@
 from dash import dcc, html
 
-# regression_tab = html.Div(
-#     [
-#         html.Div(
-#             [
-#                 html.Label("Symbol:"),
-#                 dcc.Dropdown(
-#                     id="regression-symbol",
-#                     options=[],
-#                     value=None,
-#                     style={"width": "200px"},
-#                 ),
-#                 html.Label("Time Window:"),
-#                 dcc.Dropdown(
-#                     id="regression-time-hours",
-#                     options=[
-#                         {"label": "1 Hour", "value": 1},
-#                         {"label": "4 Hours", "value": 4},
-#                         {"label": "24 Hours", "value": 24},
-#                     ],
-#                     value=24,
-#                     style={"width": "200px"},
-#                 ),
-#             ],
-
-#             style={
-#                 "padding": "20px",
-#                 "backgroundColor": "#f8f9fa",
-#                 "marginBottom": "20px",
-#             },
-#         ),
-#         # Residuals + regression stats
-#         dcc.Graph(id="regression-residuals"),
-#         html.Div(
-#             id="regression-stats",
-#             style={"padding": "20px", "paddingBottom": "100px"},
-#         ),
-#         # Z-score
-#         dcc.Graph(id="regression-zscore"),
-#         dcc.Graph(id="volatility-forecast"),
-#         html.Div(id="garch-stats", style={"padding": "20px"}),
-#     ],
-#     style={"padding": "20px"},
-# )
-
 regression_tab = html.Div(
     [
         # Controls section with Calibrate button
@@ -102,9 +58,9 @@ regression_tab = html.Div(
             ],
             style={"marginBottom": "30px"},
         ),
-        # Z-score chart (standalone)
+        # Z-score chart
         dcc.Graph(id="regression-zscore", style={"marginBottom": "30px"}),
-        # Volatility forecast + GARCH stats table
+        # Volatility forecast and GARCH stats table
         html.Div(
             [
                 dcc.Graph(id="volatility-forecast"),

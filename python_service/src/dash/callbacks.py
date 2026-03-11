@@ -164,6 +164,7 @@ def update_regression_analysis(symbol, hours):
         empty_fig = go.Figure().add_annotation(text="Select symbol", showarrow=False)
         return empty_fig, empty_fig, html.Div("Select symbol")
 
+    # For now if changing interval here, make sure to change below 2x
     query = """
     SELECT c.bar_ts, e1.exchange_name as target_exchange, e2.exchange_name as ref_exchange,
            c.regression_residual_bps, c.residual
@@ -241,7 +242,7 @@ def update_regression_analysis(symbol, hours):
         Input("regression-symbol", "value"),
         Input("regression-time-hours", "value"),
         State("regression-symbol", "value"),
-    ],  # ← Unique state trigger
+    ],
     prevent_initial_call=True,
 )
 def garch_volatility_forecast(symbol, hours, symbol_state):
@@ -249,10 +250,7 @@ def garch_volatility_forecast(symbol, hours, symbol_state):
         empty_fig = go.Figure().add_annotation(text="Select symbol", showarrow=False)
         return empty_fig, html.Div()
 
-    # omega = calibrated_params["omega"]
-    # alpha = calibrated_params["alpha"]
-    # beta = calibrated_params["beta"]
-
+    # For now if changing interval here, make sure to change below
     query = """
     SELECT c.bar_ts, AVG(c.regression_residual_bps) as residual_bps
     FROM cross_ex_regression c JOIN symbols s ON c.symbol_id = s.id
@@ -427,6 +425,7 @@ def calibrate_garch(n_clicks, symbol, hours):
     if n_clicks is None or not symbol:
         return ""
 
+    # Can change calibration intervals here
     query = """
     SELECT c.bar_ts, AVG(regression_residual_bps) as residual_bps
     FROM cross_ex_regression c JOIN symbols s ON c.symbol_id = s.id
