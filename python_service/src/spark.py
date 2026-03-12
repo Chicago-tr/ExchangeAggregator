@@ -186,8 +186,10 @@ def run_spark():
     bars_last_four_hours = bars_1m_reg.filter(col("bar_ts") > cutoff_time)
     recent_output_bars = bars_1m_reg.filter(col("bar_ts") > cutoff_output)
 
-    print(f"Full context: {bars_1m_reg.count()} bars")
-    print(f"New output: {recent_output_bars.count()} bars")
+    # Can check here if bar count looks good
+
+    # print(f"Full context: {bars_1m_reg.count()} bars")
+    # print(f"New output: {recent_output_bars.count()} bars")
 
     recent_bars = bars_1m_reg.filter(col("bar_ts") > next_minute)
 
