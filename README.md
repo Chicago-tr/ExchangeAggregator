@@ -37,3 +37,26 @@ python main.py
 ```
 
 ## Screenshots
+<img width="922" height="422" alt="homescreen" src="https://github.com/user-attachments/assets/620568d3-f2cf-48f4-83a5-51bdcfd16794" />
+
+---
+
+---
+
+<img width="922" height="422" alt="regression_residuals" src="https://github.com/user-attachments/assets/f7e236b6-772d-4c4b-ba7d-16ce0ecc1cf0" />
+
+---
+
+---
+
+<img width="922" height="422" alt="spread_zscore" src="https://github.com/user-attachments/assets/71c5d795-740d-45f3-bda8-65860d2f58f6" />
+
+---
+
+---
+
+<img width="922" height="422" alt="forecast_stats" src="https://github.com/user-attachments/assets/72b2c5f1-ac91-4b33-b5ab-b4d64b47680a" />
+
+## Contributing
+All contributions welcome, just fork the repo and open a pull request to ```main```.
+
