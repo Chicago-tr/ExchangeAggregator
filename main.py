@@ -25,7 +25,7 @@ def run_api():
 
 def run_spark_analysis():
     """Spark analysis every 2 minutes"""
-    from python_service.src.main import main as spark_main  # Your spark file
+    from python_service.src.main import main as spark_main
 
     while True:
         try:
@@ -40,6 +40,7 @@ def run_spark_analysis():
 
 
 def run_dash():
+    """Dash app hosting"""
     print("📈 Starting Dash Dashboard (:8050)...")
     process = subprocess.Popen(
         ["python", "python_service/src/dash/app.py"],
@@ -53,19 +54,18 @@ def run_dash():
 
 
 def signal_handler(signum, frame):
-    """shutdown on Ctrl+C"""
+    """Shutdown on Ctrl+C"""
     print("\n Shutting down all services...")
     sys.exit(0)
 
 
-logging.getLogger().setLevel(logging.WARNING)  # Only show WARNING+
+logging.getLogger().setLevel(logging.WARNING)
 logging.getLogger("pyspark").setLevel(logging.WARNING)
 logging.getLogger("dash").setLevel(logging.WARNING)
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 logging.getLogger("psycopg2").setLevel(logging.WARNING)
 
 if __name__ == "__main__":
-    # Handle Ctrl+C gracefully
     signal.signal(signal.SIGINT, signal_handler)
 
     print("Starting Cross-Exchange Analytics Platform (Ctrl+C to stop)")
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         print(f"{p.name} process started (PID: {p.pid})")
 
     try:
-        # Wait for processes
+        # this should wait for processes
         for p in processes:
             p.join()
     except KeyboardInterrupt:
