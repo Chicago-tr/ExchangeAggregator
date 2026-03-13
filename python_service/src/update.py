@@ -12,6 +12,7 @@ DB_NAME = os.getenv("DB_NAME")
 
 
 def update_ts(new_last_ts):
+
     conn = psycopg2.connect(
         dbname=DB_NAME,
         host=DB_HOST,
