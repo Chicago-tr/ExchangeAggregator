@@ -3,7 +3,7 @@
 End-to-end analytics platform processing live cryptocurrency data across exchanges while using PySpark/Dash for analysis and data visualizations.
 
 ## Features
-- PySpark ETL pipeline transforming live cryptocurrency quotes into OHLC bars and cross-exchange spread metrics
+- PySpark ETL pipeline transforms live cryptocurrency quotes into OHLC bars and cross-exchange spread metrics
 - Rolling regression residuals, spreads, and volatility forecasts computed via PySpark to power cross-exchange analytics
 - Interactive dashboards built with Plotly Dash
 - Data quality safeguards including ETL state management, duplicate detection, and comprehensive logging
