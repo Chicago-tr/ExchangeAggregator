@@ -57,6 +57,7 @@ python main.py
 
 <img width="922" height="422" alt="forecast_stats" src="https://github.com/user-attachments/assets/72b2c5f1-ac91-4b33-b5ab-b4d64b47680a" />
 
+
 ## Contributing
 All contributions welcome, just fork the repo and open a pull request to ```main```.
 
