@@ -33,8 +33,13 @@ pip install -r python_service/requirements.txt
 cd typescript_service && npm install && cd ..
 ```
 3. Set .env variables such as DB_URL and DB_NAME (.env.example lists whats needed)
+   
+4. Migrate database
+```bash
+npx drizzle-kit migrate
+```
 
-4. Run the platform
+6. Run the platform
 ```bash
 python main.py
 ```
