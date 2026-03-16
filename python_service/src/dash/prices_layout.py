@@ -27,6 +27,9 @@ prices_tab = html.Div(
             ],
             style={"padding": "20px"},
         ),
+        dcc.Interval(
+            id="interval-component", interval=2 * 60 * 1000, n_intervals=0
+        ),  # 2min refresh
         dcc.Graph(id="price-spread-chart"),
         dcc.Graph(id="cross-spread-chart"),
         html.Div(id="stats-summary"),

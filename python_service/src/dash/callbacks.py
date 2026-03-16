@@ -48,35 +48,53 @@ def update_all_dropdowns(active_tab):
         Input("exchange-dropdown", "value"),
         Input("date-range", "start_date"),
         Input("date-range", "end_date"),
+        Input("interval-component", "n_intervals"),
     ],
 )
-def update_price_spread_chart(symbol, exchanges, start_date, end_date):
+def update_price_spread_chart(symbol, exchanges, start_date, end_date, n_intervals):
     if not symbol:
         return go.Figure()
 
-    conditions = ["s.symbol_code = %s", "b.bar_ts >= %s", "b.bar_ts <= %s"]
-    params = [symbol, start_date, end_date]
+    if start_date and end_date:
+        start_dt = pd.Timestamp(start_date)
+        end_dt = pd.Timestamp(end_date)
+        days_back = max(1, (end_dt - start_dt).days or 1)
+    else:
+        days_back = 7
+
+    query = f"""
+        SELECT b.bar_ts,
+                e.exchange_name,
+                b.close_mid,
+                b.avg_rel_spread_bps
+        FROM bars_1m b
+        JOIN exchanges e ON b.exchange_id = e.id
+        JOIN symbols   s ON b.symbol_id = s.id
+        WHERE s.symbol_code = %s
+            AND b.bar_ts > NOW() - INTERVAL '{days_back} DAYS'
+    """
+
+    params = [symbol]
 
     if exchanges:
         placeholders = ",".join(["%s"] * len(exchanges))
-        conditions.append(f"e.exchange_name IN ({placeholders})")
+        query += f"AND e.exchange_name IN ({placeholders})"
         params.extend(exchanges)
 
-    where_clause = " AND ".join(conditions)
+    query += " ORDER BY b.bar_ts, e.exchange_name"
 
-    df = pd.read_sql(
-        f"""
-        SELECT b.bar_ts, e.exchange_name, b.close_mid, b.avg_rel_spread_bps
-        FROM bars_1m b JOIN exchanges e ON b.exchange_id = e.id
-        JOIN symbols s ON b.symbol_id = s.id WHERE {where_clause}
-        ORDER BY b.bar_ts, e.exchange_name
-    """,
-        engine,
-        params=tuple(params),
-    )
+    df = pd.read_sql(query, engine, params=tuple(params))
 
     if df.empty:
         return go.Figure()
+
+    bar_ts_series = pd.to_datetime(df["bar_ts"])
+    if bar_ts_series.dt.tz is None:
+        df["bar_ts"] = bar_ts_series.dt.tz_localize("UTC").dt.tz_convert(
+            "America/Chicago"
+        )
+    else:
+        df["bar_ts"] = bar_ts_series.dt.tz_convert("America/Chicago")
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     for exch in df["exchange_name"].unique():
@@ -102,6 +120,7 @@ def update_price_spread_chart(symbol, exchanges, start_date, end_date):
         xaxis_title="Time",
         yaxis_title="Mid Price",
         yaxis2_title="Spread (bps)",
+        uirevision=symbol,
     )
     return fig
 
@@ -113,21 +132,31 @@ def update_price_spread_chart(symbol, exchanges, start_date, end_date):
         Input("symbol-dropdown", "value"),
         Input("date-range", "start_date"),
         Input("date-range", "end_date"),
+        Input("interval-component", "n_intervals"),
     ],
 )
-def update_cross_spread_chart(symbol, start_date, end_date):
+def update_cross_spread_chart(symbol, start_date, end_date, n_intervals):
     if not symbol:
         return go.Figure()
 
-    df = pd.read_sql(
+    # UTC conversion again
+    if start_date and end_date:
+        start_dt = pd.Timestamp(start_date)
+        end_dt = pd.Timestamp(end_date)
+        days_back = max(1, (end_dt - start_dt).days or 1)
+    else:
+        days_back = 7
+
+    query = f"""
+            SELECT c.bar_ts, c.cross_spread_bps
+            FROM cross_ex_spread_1m c
+            JOIN symbols s ON c.symbol_id = s.id
+            WHERE s.symbol_code = %s
+                AND c.bar_ts > NOW() - INTERVAL '{days_back} DAYS'
+            ORDER BY c.bar_ts
         """
-        SELECT bar_ts, cross_spread_bps FROM cross_ex_spread_1m c
-        JOIN symbols s ON c.symbol_id = s.id
-        WHERE s.symbol_code = %s AND bar_ts >= %s AND bar_ts <= %s ORDER BY bar_ts
-    """,
-        engine,
-        params=(symbol, start_date, end_date),
-    )
+
+    df = pd.read_sql(query, engine, params=(symbol,))
 
     if df.empty:
         return go.Figure()
@@ -146,6 +175,8 @@ def update_cross_spread_chart(symbol, start_date, end_date):
         title=f"{symbol} - Cross-Exchange Spread (bps)",
     )
     fig.update_yaxes(title="Cross Spread (bps)")
+    fig.update_layout(uirevision=symbol)
+    fig.update_xaxes(title="Time")
     return fig
 
 
