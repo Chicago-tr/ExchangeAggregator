@@ -3,13 +3,16 @@
 End-to-end analytics platform processing live cryptocurrency data across exchanges while using PySpark/Dash for analysis and data visualizations.
 
 ## Features
+
 - PySpark ETL pipeline transforms live cryptocurrency quotes into OHLC bars and cross-exchange spread metrics
+- P50/P90/P99 API latency tracking across exchanges + rolling last 5m summary stats table 
+- HTTP error rate monitoring/logging
 - Rolling regression residuals, spreads, and volatility forecasts computed via PySpark to power cross-exchange analytics
 - Interactive dashboards built with Plotly Dash
 - Data quality safeguards including ETL state management, duplicate detection, and comprehensive logging
 - Modular design to support the easy addition of new exchanges or currency pairs
 - Multiprocessing orchestrator (main.py) coordinating API data collection, Spark analytics, and Dash dashboards
-
+  
 ## Quick Start (Local)
 1. Clone the Repository
  ```bash
@@ -57,6 +60,11 @@ python main.py
 
 <img width="922" height="422" alt="forecast_stats" src="https://github.com/user-attachments/assets/72b2c5f1-ac91-4b33-b5ab-b4d64b47680a" />
 
+---
+
+---
+
+<img width="922" height="422" alt="latency" src="https://github.com/user-attachments/assets/8879a920-693b-40ec-aba7-c212def2f71b" />
 
 ## Contributing
 All contributions welcome, just fork the repo and open a pull request to ```main```.
