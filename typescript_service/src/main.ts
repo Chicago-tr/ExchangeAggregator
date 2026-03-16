@@ -9,15 +9,15 @@ import {
   insertBinancePrice,
   insertCoinbasePrice,
 } from "./db/queries/prices.js";
-
+import { logLatency } from "./db/queries/latencies.js";
 async function main() {
   process.loadEnvFile();
 
   const migrationClient = postgres(config.db.url, { max: 1 });
 
   await migrate(drizzle(migrationClient), config.db.migrationConfig);
-
-  await seedTables(); //Seeds exchange and symbol data into respective tables if it's not there
+  //Seeds exchange and symbol data into respective tables if it's not there
+  await seedTables();
 
   const pairs = envOrThrow("PAIRS");
   const pairsSplit = pairs.split(",");

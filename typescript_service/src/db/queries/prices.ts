@@ -2,10 +2,10 @@ import { BinanceApi, CoinbaseApi } from "../../api.js";
 import { db } from "../index.js";
 import { exchanges, newPrices, prices, symbols } from "../schema.js";
 
-const exchangeNameToId = new Map<string, number>();
-const symbolCodeToId = new Map<string, number>();
+export const exchangeNameToId = new Map<string, number>();
+export const symbolCodeToId = new Map<string, number>();
 
-async function loadReferenceData() {
+export async function loadReferenceData() {
   //This function queries the database tables and inserts a name/symbol-id pair into constant variables
   //The variables are used to get the table id of an exchange name or symbol when creating a price entry
   //Data for the exchange and symbol tables is currently hardcoded since it's just names
@@ -45,14 +45,12 @@ export async function createPriceEntry(
   if (exchange_id == null || symbol_id == null) {
     throw new Error("Unknown exchange or symbol");
   }
-  await db
-    .insert(prices)
-    .values({
-      exchange_id: exchange_id,
-      symbol_id: symbol_id,
-      bid: bid,
-      ask: ask,
-    });
+  await db.insert(prices).values({
+    exchange_id: exchange_id,
+    symbol_id: symbol_id,
+    bid: bid,
+    ask: ask,
+  });
 }
 
 const CoinApi = new CoinbaseApi();
@@ -60,10 +58,12 @@ const BinApi = new BinanceApi();
 
 export async function insertBinancePrice(symbol: string) {
   const data = await BinApi.fetchPrice(symbol);
+  if (!data) return;
   await createPriceEntry("Binance", symbol, data.bid, data.ask);
 }
 
 export async function insertCoinbasePrice(symbol: string) {
   const data = await CoinApi.fetchPrice(symbol);
+  if (!data) return;
   await createPriceEntry("Coinbase", symbol, data.bid, data.ask);
 }

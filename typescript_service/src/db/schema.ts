@@ -7,6 +7,7 @@ import {
   integer,
   unique,
   real,
+  bigint,
 } from "drizzle-orm/pg-core";
 
 export const prices = pgTable("prices", {
@@ -41,3 +42,18 @@ export const etl_state = pgTable("etl_state", {
   id: varchar("id").primaryKey(),
   last_processed: timestamp("last_processed").notNull().defaultNow(),
 });
+
+export const latency_metrics = pgTable("latency_metrics", {
+  id: serial("id").primaryKey(),
+  exchange: varchar("exchange", { length: 50 }).notNull(),
+  endpoint: varchar("endpoint", { length: 200 }).notNull(),
+  symbol: varchar("symbol", { length: 20 }),
+  client_send_ts: bigint("client_send_ts", { mode: "number" }).notNull(),
+  client_recv_ts: bigint("client_recv_ts", { mode: "number" }).notNull(),
+  rtt_ms: real("rtt_ms").notNull(),
+  status_code: integer("status_code").notNull(),
+  error: varchar("error", { length: 200 }),
+  ingested_at: timestamp("ingested_at").defaultNow().notNull(),
+});
+
+export type latency_mets = typeof latency_metrics.$inferInsert;

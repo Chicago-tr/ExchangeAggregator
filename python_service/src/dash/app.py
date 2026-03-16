@@ -3,6 +3,7 @@ import dash
 import dash.dcc as dcc
 import dash.html as html
 from callbacks import *  # Gets all callbacks
+from latency_layout import latency_tab
 from prices_layout import prices_tab
 from regression_layout import regression_tab
 
@@ -23,6 +24,7 @@ app.layout = html.Div(
                     value="regression",
                     children=[regression_tab],
                 ),
+                dcc.Tab(label="Latency", value="latency", children=[latency_tab]),
             ],
             id="main-tabs",
             value="prices",
@@ -31,4 +33,4 @@ app.layout = html.Div(
 )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8050)
+    app.run(host="0.0.0.0", port=8050, debug=False)

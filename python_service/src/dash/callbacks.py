@@ -9,6 +9,8 @@ from db import engine
 from plotly.subplots import make_subplots
 from scipy.optimize import minimize
 
+# Need to split-up/refactor this file eventually.
+
 
 # Dropdown callback
 @callback(
@@ -52,6 +54,7 @@ def update_all_dropdowns(active_tab):
     ],
 )
 def update_price_spread_chart(symbol, exchanges, start_date, end_date, n_intervals):
+    print("======================HIIII============")
     if not symbol:
         return go.Figure()
 
@@ -509,3 +512,160 @@ def calibrate_garch(n_clicks, symbol, hours):
         )
     else:
         return html.Div("Calibration failed", style={"color": "red"})
+
+
+@callback(
+    [
+        Output("latency-p99-chart", "figure"),
+        Output("latency-stats-table", "data"),
+        Output("latency-table-title", "children"),
+    ],
+    [
+        Input("latency-exchange-select", "value"),
+        Input("latency-date-range", "start_date"),
+        Input("latency-date-range", "end_date"),
+        Input("latency-interval", "n_intervals"),
+    ],
+)
+def update_latency_dashboard(exchange_filter, start_date, end_date, n_intervals):
+
+    if start_date and end_date:
+        start_dt = pd.Timestamp(start_date)
+        end_dt = pd.Timestamp(end_date)
+        days_back = max(1, (end_dt - start_dt).days or 1)
+    else:
+        days_back = 1
+
+    if exchange_filter == "all":
+        where_clause = f"ingested_at > NOW() - INTERVAL '{days_back} DAYS'"
+        params = []
+    else:
+        where_clause = (
+            f"exchange = %s AND ingested_at > NOW() - INTERVAL '{days_back} DAYS'"
+        )
+        params = [exchange_filter]
+
+    query = f"""
+            SELECT date_trunc('hour', to_timestamp(client_send_ts/1000::bigint)) +
+                   (EXTRACT(minute FROM to_timestamp(client_send_ts/1000::bigint)) / 5 * 5 * INTERVAL '1 minute') as time_bin,
+                   exchange, COUNT(*) as request_count,
+                   ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY rtt_ms)::numeric, 1) as p50,
+                   ROUND(PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY rtt_ms)::numeric, 1) as p90,
+                   ROUND(PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY rtt_ms)::numeric, 1) as p99,
+                   ROUND(AVG(rtt_ms)::numeric, 1) as avg_rtt
+            FROM latency_metrics
+            WHERE {where_clause}
+            GROUP BY 1,2
+            ORDER BY 1 ASC, 2
+        """
+
+    df = pd.read_sql(query, engine, params=tuple(params))
+
+    if df.empty:
+        empty_fig = go.Figure()
+        empty_fig.add_annotation(
+            text="No data", xref="paper", yref="paper", x=0.5, y=0.5
+        )
+        return empty_fig, [], "No data"
+
+    time_series = pd.to_datetime(df["time_bin"])
+    if time_series.dt.tz is None:
+        df["time_bin"] = time_series.dt.tz_localize("UTC").dt.tz_convert(
+            "America/Chicago"
+        )
+    else:
+        df["time_bin"] = time_series.dt.tz_convert("America/Chicago")
+
+    colors = ["#636efa", "#EF553B", "#00cc96", "#ab63fa", "#FFA15A", "#19d3f3"]
+    fig = go.Figure()
+
+    for i, exchange in enumerate(sorted(df["exchange"].unique())):
+        exch_df = df[df["exchange"] == exchange]
+        color = colors[i % len(colors)]
+
+        fig.add_trace(
+            go.Scatter(
+                x=exch_df["time_bin"],
+                y=exch_df["p99"],
+                name=f"{exchange} P99",
+                line=dict(color=color, width=3),
+                mode="lines",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=exch_df["time_bin"],
+                y=exch_df["p90"],
+                name=f"{exchange} P90",
+                line=dict(color=color, width=3, dash="dash"),
+                mode="lines",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=exch_df["time_bin"],
+                y=exch_df["p50"],
+                name=f"{exchange} P50",
+                line=dict(color=color, width=3, dash="dot"),
+                mode="lines",
+            )
+        )
+    # graph
+    fig.update_layout(
+        title="Exchange Latency Distribution (P50/P90/P99) - 1 Minute Buckets",
+        xaxis_title="Time (CDT)",
+        yaxis_title="Latency (ms)",
+        hovermode="x unified",
+        height=500,
+        template="plotly_white",
+        legend=dict(
+            y=0.5,
+            x=1.02,
+            yanchor="middle",
+            xanchor="left",
+            bgcolor="rgba(255,255,255,0.95)",
+        ),
+        yaxis=dict(gridcolor="rgba(128,128,128,0.2)"),
+        margin=dict(r=150),
+    )
+
+    table_data = []
+    for exchange in sorted(df["exchange"].drop_duplicates()):
+        exch_df = df[df["exchange"] == exchange]
+        total_requests = int(exch_df["request_count"].sum())
+        latest = exch_df.iloc[-1]
+
+        error_query = f"""
+            SELECT COUNT(CASE WHEN status_code >= 400 OR status_code = 0 THEN 1 END) as errors
+            FROM latency_metrics WHERE {where_clause} AND exchange = %s
+        """
+        try:
+            error_result = pd.read_sql(error_query, engine, params=params + [exchange])
+            total_errors = (
+                int(error_result["errors"].iloc[0]) if not error_result.empty else 0
+            )
+        except:
+            total_errors = 0
+
+        table_data.append(
+            {
+                "exchange": str(exchange),
+                "total_requests": f"{total_requests:,}",
+                "p50": f"{float(latest['p50']):.1f}",
+                "p90": f"{float(latest['p90']):.1f}",
+                "p99": f"{float(latest['p99']):.1f}",
+                "avg_rtt": f"{float(latest['avg_rtt']):.1f}",
+                "http_errors": f"{total_errors:,}",
+                "error_rate": f"{(total_errors / total_requests * 100):.1f}%"
+                if total_requests > 0
+                else "0%",
+            }
+        )
+
+    timeframe_label = f"{days_back} Day{'s' if days_back > 1 else ''}"
+    table_title = html.H4(
+        f"Latency Statistics (Last 5 Minutes)",
+        style={"marginBottom": "10px", "color": "#495057", "fontWeight": "500"},
+    )
+
+    return fig, table_data, table_title
