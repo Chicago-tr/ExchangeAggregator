@@ -21,7 +21,7 @@ graph LR
     
     A[Data Collection<br/><br/>Exchange APIs,<br/>Bid/Ask, Latency, Status logging] --> B[PostgreSQL Storage<br/><br/>Create bars, Latency metrics, Quality checks<br/>]
     
-    B --> C[SQL Aggregation<br/><br/>OHLC, P50/P90/P99<br/>1-min time series, etc.]
+    B --> C[SQL Aggregation<br/><br/>OHLC, P50/P90/P99<br/>distributions, etc.]
     
     C --> D[PySpark/Pandas<br/><br/>Analysis,<br/>Data validation]
     D --> E[Dash/Plotly<br/><br/>Flowing updates,<br/>Multi-chart layout<br/>]
