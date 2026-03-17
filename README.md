@@ -19,13 +19,13 @@ End-to-end analytics platform processing live cryptocurrency data across exchang
 ```mermaid
 graph LR
     
-    A[Data Collection<br/>Exchange APIs,<br/>Bid/Ask, Latency, Status logging] --> B[PostgreSQL<br/>Create bars, Latency metrics, Quality checks<br/>]
+    A[Data Collection<br/><br/>Exchange APIs,<br/>Bid/Ask, Latency, Status logging] --> B[PostgreSQL Storage<br/><br/>Create bars, Latency metrics, Quality checks<br/>]
     
-    B --> C[SQL Aggregation<br/>OHLC, P50/P90/P99<br/>1-min time series, etc.]
+    B --> C[SQL Aggregation<br/><br/>OHLC, P50/P90/P99<br/>1-min time series, etc.]
     
-    C --> D[Pandas<br/>Analysis,<br/>Data validation]
-    D --> E[Dash/Plotly<br/>Flowing updates,<br/>Multi-chart layout<br/>]
-    E --> F[Dashboard<br/>Symbol filtering<br/>Date ranges<br/>Exchange selection<br/>Cross-asset analytics]
+    C --> D[Pandas<br/><br/>Analysis,<br/>Data validation]
+    D --> E[Dash/Plotly<br/><br/>Flowing updates,<br/>Multi-chart layout<br/>]
+    E --> F[Dashboard<br/><br/>Symbol filtering<br/>Date ranges<br/>Exchange selection<br/>Cross-asset analytics]
     
     
     style A fill:#e1f5fe
