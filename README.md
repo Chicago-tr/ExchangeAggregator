@@ -25,7 +25,7 @@ graph LR
     
     C --> D[Pandas<br/><br/>Analysis,<br/>Data validation]
     D --> E[Dash/Plotly<br/><br/>Flowing updates,<br/>Multi-chart layout<br/>]
-    E --> F[Dashboard<br/><br/>Symbol filtering<br/>Date ranges<br/>Exchange selection<br/>Cross-asset analytics]
+    E --> F[Dashboard<br/><br/>Symbol filtering,<br/>Date ranges,<br/>Exchange selection,<br/>Cross-asset analytics]
     
     
     style A fill:#e1f5fe
