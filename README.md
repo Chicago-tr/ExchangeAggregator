@@ -12,7 +12,28 @@ End-to-end analytics platform processing live cryptocurrency data across exchang
 - Data quality safeguards including ETL state management, duplicate detection, and comprehensive logging
 - Modular design to support the easy addition of new exchanges or currency pairs
 - Multiprocessing orchestrator (main.py) coordinating API data collection, Spark analytics, and Dash dashboards
-  
+
+
+## Architecture
+
+```mermaid
+graph LR
+    
+    A[Data Collection<br/>Exchange APIs,<br/>Bid/Ask, Latency, Status logging] --> B[PostgreSQL<br/>Create bars, Latency metrics, Quality checks<br/>]
+    
+    B --> C[SQL Aggregation<br/>OHLC, P50/P90/P99<br/>1-min time series, etc.]
+    
+    C --> D[Pandas<br/>Analysis,<br/>Data validation]
+    D --> E[Dash/Plotly<br/>Flowing updates,<br/>Multi-chart layout<br/>]
+    E --> F[Dashboard<br/>Symbol filtering<br/>Date ranges<br/>Exchange selection<br/>Cross-asset analytics]
+    
+    
+    style A fill:#e1f5fe
+    style F fill:#c8e6c9
+    classDef title font-size:14px,font-weight:bold,color:#333
+    class A,B,C,D,E,F title
+```
+
 ## Quick Start (Local)
 1. Clone the Repository
  ```bash
