@@ -54,7 +54,7 @@ def update_all_dropdowns(active_tab):
     ],
 )
 def update_price_spread_chart(symbol, exchanges, start_date, end_date, n_intervals):
-    print("======================HIIII============")
+    
     if not symbol:
         return go.Figure()
 
