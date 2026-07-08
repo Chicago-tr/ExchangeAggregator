@@ -23,11 +23,14 @@ from plotly.subplots import make_subplots
 from scipy.optimize import minimize
 
 from signal_analysis import (
+    MIN_STATIONARITY_OBS,
     backtest_signal,
     build_backtest_figure,
     build_sensitivity_heatmap,
     build_trade_book,
+    compute_stationarity_stats,
     load_regression_data,
+    split_train_test,
     summarize_backtest,
 )
 
@@ -96,6 +99,87 @@ def build_backtest_stats_card(stats: dict):
 
 
 # Need to split-up/refactor this file eventually.
+
+
+def build_stationarity_card(stats: dict):
+    if not stats or stats.get("adf_pvalue") is None:
+        n_obs = (stats or {}).get("n_obs", 0)
+        return html.Div(
+            f"Insufficient data for stationarity test (need {MIN_STATIONARITY_OBS}+ bars, have {n_obs}).",
+            style={"padding": "15px", "color": "#888", "backgroundColor": "#f8f9fa", "borderRadius": "8px", "marginTop": "10px"},
+        )
+
+    is_stat = stats["is_stationary"]
+    verdict_color = "#2ca02c" if is_stat else "#d62728"
+    verdict_text = "Stationary (mean-reverting)" if is_stat else "Not stationary at 5% level"
+    half_life = stats.get("half_life_bars")
+    half_life_text = f"{half_life:.1f} bars (~{half_life:.0f} min)" if half_life else "N/A (no reversion detected)"
+
+    def metric(label, value, color=None):
+        return html.Div(
+            [
+                html.Div(label, style={"fontSize": "11px", "color": "#888", "marginBottom": "4px",
+                                       "textTransform": "uppercase", "letterSpacing": "0.5px"}),
+                html.Div(value, style={"fontSize": "16px", "fontWeight": "600", "color": color or "#222"}),
+            ],
+            style={"padding": "10px 14px", "backgroundColor": "#fff", "borderRadius": "6px",
+                   "boxShadow": "0 1px 3px rgba(0,0,0,0.08)"},
+        )
+
+    return html.Div(
+        [
+            html.H4("Stationarity Test (Augmented Dickey-Fuller)", style={"marginBottom": "12px", "color": "#333", "fontSize": "15px"}),
+            html.Div(
+                [
+                    metric("ADF Statistic", f"{stats['adf_stat']:.3f}"),
+                    metric("p-value", f"{stats['adf_pvalue']:.4f}"),
+                    metric("Verdict", verdict_text, verdict_color),
+                    metric("Half-Life of Reversion", half_life_text),
+                ],
+                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": "10px"},
+            ),
+            html.P(
+                "Null hypothesis: the residual series has a unit root (non-stationary / not mean-reverting). "
+                "p < 0.05 rejects the null, supporting the mean-reversion assumption underlying this strategy.",
+                style={"fontSize": "12px", "color": "#666", "marginTop": "8px", "marginBottom": "0"},
+            ),
+        ],
+        style={"padding": "15px", "backgroundColor": "#f8f9fa", "borderRadius": "8px", "marginTop": "10px"},
+    )
+
+
+def build_validation_card(train_stats: dict, test_stats: dict):
+    def side(title, stats):
+        sharpe_color = "#2ca02c" if stats["sharpe"] > 1 else "#d62728" if stats["sharpe"] < 0 else "#ff7f0e"
+        return html.Div(
+            [
+                html.Div(title, style={"fontSize": "12px", "fontWeight": "700", "color": "#333",
+                                       "marginBottom": "8px", "textTransform": "uppercase"}),
+                html.Div(f"Sharpe: {stats['sharpe']:.2f}", style={"fontSize": "16px", "fontWeight": "600", "color": sharpe_color}),
+                html.Div(f"PnL: {stats['total_pnl']:.1f} bps (${stats['total_pnl_usd']:.2f})",
+                         style={"fontSize": "13px", "color": "#333", "marginTop": "4px"}),
+                html.Div(f"Trades: {stats['num_trades']}  |  Win Rate: {stats['win_rate']:.1f}%",
+                         style={"fontSize": "13px", "color": "#666", "marginTop": "4px"}),
+            ],
+            style={"padding": "12px 16px", "backgroundColor": "#fff", "borderRadius": "6px",
+                   "boxShadow": "0 1px 3px rgba(0,0,0,0.08)", "flex": "1"},
+        )
+
+    return html.Div(
+        [
+            html.H4("Out-of-Sample Validation (70/30 chronological split)", style={"marginBottom": "12px", "color": "#333", "fontSize": "15px"}),
+            html.Div(
+                [side("In-Sample (first 70%)", train_stats), side("Out-of-Sample (last 30%)", test_stats)],
+                style={"display": "flex", "gap": "10px"},
+            ),
+            html.P(
+                "Parameters are fixed (not re-optimized) across both periods. Sharpe/PnL decay from in-sample to "
+                "out-of-sample is expected and healthy; a large collapse suggests overfitting to the sample window.",
+                style={"fontSize": "12px", "color": "#666", "marginTop": "8px", "marginBottom": "0"},
+            ),
+        ],
+        style={"padding": "15px", "backgroundColor": "#f8f9fa", "borderRadius": "8px", "marginTop": "10px"},
+    )
 
 
 # Dropdown callback
@@ -359,7 +443,13 @@ def update_signal_pair_options(symbol, hours):
 
 
 @dash_app.callback(
-    [Output("signal-backtest-chart", "figure"), Output("signal-backtest-stats", "children"), Output("signal-trade-log", "data")],
+    [
+        Output("signal-backtest-chart", "figure"),
+        Output("signal-backtest-stats", "children"),
+        Output("signal-trade-log", "data"),
+        Output("signal-stationarity-card", "children"),
+        Output("signal-validation-card", "children"),
+    ],
     [
         Input("regression-symbol", "value"),
         Input("regression-time-hours", "value"),
@@ -374,25 +464,36 @@ def update_signal_pair_options(symbol, hours):
 def update_signal_backtest(symbol, hours, entry_bps, exit_bps, cost_bps, notional_usd, pair_label):
     if not symbol:
         empty_fig = go.Figure().add_annotation(text="Select symbol", showarrow=False)
-        return empty_fig, html.Div("Select symbol"), []
+        return empty_fig, html.Div("Select symbol"), [], html.Div(), html.Div()
 
     df = load_regression_data(symbol, hours, limit=1000)
     if df.empty:
         empty_fig = go.Figure().add_annotation(text="No regression data", showarrow=False)
-        return empty_fig, build_backtest_stats_card({}), []
+        return empty_fig, build_backtest_stats_card({}), [], html.Div(), html.Div()
 
     if not pair_label or pair_label not in df["pair_label"].unique():
         pair_label = df["pair_label"].iloc[0]
 
     df = df[df["pair_label"] == pair_label].copy()
     df = to_chicago_tz(df, "bar_ts")
-    df = backtest_signal(df, float(entry_bps or 2.0), float(exit_bps or 1.0), float(cost_bps or 0.0), float(notional_usd or 10000.0))
-    stats = summarize_backtest(df)
-    fig = build_backtest_figure(df, float(entry_bps or 2.0), float(exit_bps or 1.0), float(cost_bps or 0.0), float(notional_usd or 10000.0))
-    trade_log = build_trade_book(df)
+
+    stationarity_stats = compute_stationarity_stats(df)
+    stationarity_card = build_stationarity_card(stationarity_stats)
+
+    entry_f, exit_f, cost_f, notional_f = float(entry_bps or 2.0), float(exit_bps or 1.0), float(cost_bps or 0.0), float(notional_usd or 10000.0)
+
+    df_bt = backtest_signal(df, entry_f, exit_f, cost_f, notional_f)
+    stats = summarize_backtest(df_bt)
+    fig = build_backtest_figure(df_bt, entry_f, exit_f, cost_f, notional_f)
+    trade_log = build_trade_book(df_bt)
     stats_card = build_backtest_stats_card(stats)
 
-    return fig, stats_card, trade_log.to_dict("records")
+    train_df, test_df = split_train_test(df, train_frac=0.7)
+    train_stats = summarize_backtest(backtest_signal(train_df, entry_f, exit_f, cost_f, notional_f))
+    test_stats = summarize_backtest(backtest_signal(test_df, entry_f, exit_f, cost_f, notional_f))
+    validation_card = build_validation_card(train_stats, test_stats)
+
+    return fig, stats_card, trade_log.to_dict("records"), stationarity_card, validation_card
 
 
 @dash_app.callback(

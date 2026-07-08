@@ -2,11 +2,13 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from statsmodels.tsa.stattools import adfuller
 
 from db import engine
 
 DEFAULT_ENTRY_BPS = 2.0
 DEFAULT_EXIT_BPS = 1.0
+MIN_STATIONARITY_OBS = 30
 
 
 def load_regression_data(symbol: str, hours: int = 24, limit: int = 1000) -> pd.DataFrame:
@@ -74,6 +76,67 @@ def compute_signal_positions(df: pd.DataFrame, entry_bps: float, exit_bps: float
 
     df["signal_type"] = df["signal"].map({1: "long", -1: "short", 0: "flat"})
     return df
+
+
+def compute_stationarity_stats(df: pd.DataFrame) -> dict:
+    """Test whether the regression residual is stationary (mean-reverting) using an
+    Augmented Dickey-Fuller test, and estimate the half-life of mean reversion via an
+    AR(1)/Ornstein-Uhlenbeck style regression of residual changes on the lagged residual.
+
+    This underpins the core assumption of the strategy: that the residual reverts to
+    zero rather than drifting arbitrarily. A p-value < 0.05 rejects the null hypothesis
+    of a unit root (non-stationarity), supporting the mean-reversion trade thesis.
+    """
+    empty = {
+        "adf_stat": None, "adf_pvalue": None, "is_stationary": None,
+        "half_life_bars": None, "n_obs": 0,
+    }
+    if df.empty:
+        return empty
+
+    series = df["regression_residual_bps"].dropna()
+    if len(series) < MIN_STATIONARITY_OBS:
+        return {**empty, "n_obs": int(len(series))}
+
+    try:
+        adf_stat, adf_pvalue = adfuller(series, autolag="AIC")[:2]
+        adf_stat, adf_pvalue = float(adf_stat), float(adf_pvalue)
+    except Exception:
+        return {**empty, "n_obs": int(len(series))}
+
+    lagged = series.shift(1)
+    delta = series.diff()
+    valid = pd.concat([lagged, delta], axis=1).dropna()
+    valid.columns = ["lagged", "delta"]
+
+    half_life_bars = None
+    if len(valid) > 10 and valid["lagged"].std() > 0:
+        beta, _ = np.polyfit(valid["lagged"], valid["delta"], 1)
+        if beta < 0:
+            half_life_bars = float(-np.log(2) / beta)
+
+    return {
+        "adf_stat": adf_stat,
+        "adf_pvalue": adf_pvalue,
+        "is_stationary": bool(adf_pvalue < 0.05),
+        "half_life_bars": half_life_bars,
+        "n_obs": int(len(series)),
+    }
+
+
+def split_train_test(df: pd.DataFrame, train_frac: float = 0.7) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Chronologically split a regression dataframe into an in-sample (train) and
+    out-of-sample (test) period, so backtest parameters can be validated on unseen data
+    rather than only evaluated on the same window they were chosen from."""
+    if df.empty:
+        return df, df
+
+    df_sorted = df.sort_values("bar_ts").reset_index(drop=True)
+    split_idx = int(len(df_sorted) * train_frac)
+    split_idx = max(1, min(split_idx, len(df_sorted) - 1))
+    train_df = df_sorted.iloc[:split_idx].reset_index(drop=True)
+    test_df = df_sorted.iloc[split_idx:].reset_index(drop=True)
+    return train_df, test_df
 
 
 def backtest_signal(df: pd.DataFrame, entry_bps: float = DEFAULT_ENTRY_BPS, exit_bps: float = DEFAULT_EXIT_BPS, cost_bps: float = 0.0, notional_usd: float = 10000.0) -> pd.DataFrame:

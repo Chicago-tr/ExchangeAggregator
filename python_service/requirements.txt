@@ -7,5 +7,6 @@ dash-bootstrap-components==1.6.0
 numpy==1.26.4
 psycopg2-binary==2.9.9
 scipy==1.13.1
+statsmodels==0.14.2
 pyspark==3.5.1
 gunicorn==22.0.0

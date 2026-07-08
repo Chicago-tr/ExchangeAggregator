@@ -5,3 +5,4 @@ sqlalchemy==2.0.31
 python-dotenv==1.0.1
 dash-bootstrap-components==1.6.0
 numpy==1.26.4
+statsmodels==0.14.2

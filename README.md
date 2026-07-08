@@ -1,5 +1,7 @@
 # Arb: Cross-Exchange Crypto Analytics
 
+[![Tests](https://github.com/Chicago-tr/ExchangeAggregator/actions/workflows/tests.yml/badge.svg)](https://github.com/Chicago-tr/ExchangeAggregator/actions/workflows/tests.yml)
+
 An end-to-end analytics platform for live crypto market data, built for trading research, market structure monitoring, and data engineering.
 
 This project ingests bid/ask quotes from exchanges, stores them in PostgreSQL, computes minute-level bars and cross-exchange spread metrics with PySpark, and displays results through a Plotly Dash dashboard.
@@ -50,6 +52,20 @@ This will start the orchestrator that:
 * Launches API data collection processes.
 * Triggers PySpark analytics jobs.
 * Serves the Dash dashboards.
+
+## Strategy methodology
+See [STRATEGY.md](STRATEGY.md) for a full write-up of the signal backtest: how the
+regression residual signal is constructed, the statistical validation (stationarity
+test, half-life of mean reversion, out-of-sample split), PnL/cost assumptions, and
+known limitations.
+
+## Testing
+The signal/backtest logic (entry/exit signal generation, PnL math, no-lookahead-bias,
+stationarity, train/test split) is covered by a pytest suite:
+```bash
+pip install -r python_service/requirements-dev.txt
+pytest python_service/tests -v
+```
 
 ## Environment variables
 - `PAIRS`: comma-separated symbols, e.g. `BTC-USD,ETH-USD,SOL-USD`

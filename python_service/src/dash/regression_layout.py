@@ -161,6 +161,14 @@ regression_tab = html.Div(
                 ),
                 dcc.Graph(id="signal-backtest-chart"),
                 html.Div(id="signal-backtest-stats", style={"padding": "10px 20px 20px 20px"}),
+                html.H3("Strategy Validation", style={"marginTop": "20px"}),
+                html.P(
+                    "Checks whether the mean-reversion assumption is statistically sound and whether "
+                    "performance holds up on unseen data.",
+                    style={"color": "#666", "fontSize": "13px", "marginBottom": "10px"},
+                ),
+                html.Div(id="signal-stationarity-card"),
+                html.Div(id="signal-validation-card"),
                 html.H3("Trade Log", style={"marginTop": "20px"}),
                 dash_table.DataTable(
                     id="signal-trade-log",
